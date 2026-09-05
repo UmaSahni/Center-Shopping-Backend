@@ -241,11 +241,10 @@ export class OrderService {
 
       // Restore inventory quantities
       for (const item of order.items) {
-        await tx.$executeRaw`
-          UPDATE ProductVariant
-          SET stockQuantity = stockQuantity + ${item.quantity}
-          WHERE id = ${item.variantId}
-        `;
+        await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: { stockQuantity: { increment: item.quantity } },
+        });
       }
 
       // Create Refund record

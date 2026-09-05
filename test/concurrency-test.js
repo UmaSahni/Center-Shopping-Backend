@@ -11,9 +11,9 @@ async function runCriticalScenariosTest() {
   console.log('🧪 ========================================================\n');
 
   // Fetch test users
-  const customer1 = await prisma.user.findUnique({ where: { email: 'customer@specbee.com' } });
-  const customer2 = await prisma.user.findUnique({ where: { email: 'buyer2@specbee.com' } });
-  const admin = await prisma.user.findUnique({ where: { email: 'admin@specbee.com' } });
+  const customer1 = (await prisma.user.findUnique({ where: { email: 'customer@gmail.com' } })) || (await prisma.user.findUnique({ where: { email: 'customer@specbee.com' } }));
+  const customer2 = (await prisma.user.findUnique({ where: { email: 'buyer2@gmail.com' } })) || (await prisma.user.findUnique({ where: { email: 'buyer2@specbee.com' } })) || customer1;
+  const admin = (await prisma.user.findUnique({ where: { email: 'admin@gmail.com' } })) || (await prisma.user.findUnique({ where: { email: 'admin@specbee.com' } }));
 
   if (!customer1 || !customer2 || !admin) {
     console.error('❌ Test users not found. Please run: npm run prisma:seed');

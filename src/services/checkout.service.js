@@ -79,9 +79,13 @@ export class CheckoutService {
 
         // Step A: Validate and atomically lock/decrement stock for each item
         for (const item of checkoutItems) {
+          if (!item || !item.variantId || typeof item.variantId !== 'string') {
+            throw new AppError('Invalid checkout item: missing product variant identifier.', 400, 'INVALID_ITEM');
+          }
+
           const qty = parseInt(item.quantity, 10);
           if (isNaN(qty) || qty <= 0) {
-            throw new AppError('Invalid item quantity', 400, 'INVALID_QUANTITY');
+            throw new AppError('Invalid item quantity in order.', 400, 'INVALID_QUANTITY');
           }
 
           const variant = await tx.productVariant.findUnique({
@@ -90,7 +94,7 @@ export class CheckoutService {
           });
 
           if (!variant) {
-            throw new AppError(`Item variant ${item.variantId} not found`, 404, 'VARIANT_NOT_FOUND');
+            throw new AppError(`Item variant (${item.variantId}) not found in active catalog.`, 404, 'VARIANT_NOT_FOUND');
           }
 
           // Check product expiration date during checkout
@@ -104,15 +108,19 @@ export class CheckoutService {
 
           // ATOMIC CONDITIONAL UPDATE:
           // If 2 customers attempt to buy the last available item simultaneously:
-          // The first transaction updates the row (stockQuantity becomes 0, affectedRows = 1).
-          // The second transaction finds stockQuantity >= 1 false (affectedRows = 0) and immediately fails!
-          const affectedRows = await tx.$executeRaw`
-            UPDATE ProductVariant
-            SET stockQuantity = stockQuantity - ${qty}
-            WHERE id = ${item.variantId} AND stockQuantity >= ${qty}
-          `;
+          // The first transaction updates the row (stockQuantity decremented, count = 1).
+          // The second transaction finds stockQuantity >= qty false (count = 0) and immediately fails!
+          const updateResult = await tx.productVariant.updateMany({
+            where: {
+              id: item.variantId,
+              stockQuantity: { gte: qty },
+            },
+            data: {
+              stockQuantity: { decrement: qty },
+            },
+          });
 
-          if (affectedRows === 0) {
+          if (updateResult.count === 0) {
             throw new AppError(
               `Item "${variant.product.title}" is currently out of stock or requested quantity exceeds available stock.`,
               409,
@@ -306,11 +314,6 @@ export class CheckoutService {
         }
 
         return { order, payment };
-      },
-      {
-        isolationLevel: 'Serializable',
-        maxWait: 5000,
-        timeout: 10000,
       }
     );
 
