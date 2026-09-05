@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { AppError } from '../utils/appError.js';
 import { emitOrderStatusUpdate } from '../sockets/order.socket.js';
+import { NmiService } from './nmi.service.js';
 
 export class OrderService {
   static async getOrderById(orderId, user) {
@@ -28,7 +29,7 @@ export class OrderService {
           },
         },
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, salesAgentId: true },
         },
       },
     });
@@ -42,6 +43,11 @@ export class OrderService {
       throw new AppError('Forbidden: You are not authorized to view this order', 403, 'UNAUTHORIZED_ORDER_ACCESS');
     }
 
+    // Sales Agent can only view orders from customers assigned to them
+    if (user.role === 'SALES_AGENT' && order.user?.salesAgentId !== user.id) {
+      throw new AppError('Forbidden: You are not authorized to view this client order', 403, 'UNAUTHORIZED_ORDER_ACCESS');
+    }
+
     return order;
   }
 
@@ -52,9 +58,16 @@ export class OrderService {
 
     const where = {};
 
-    // Customers only see their own orders
+    // Role-based order access:
+    // - Customers only see their own orders
+    // - Sales Agents only see orders placed by their assigned clients
+    // - Admins see all orders
     if (user.role === 'CUSTOMER') {
       where.userId = user.id;
+    } else if (user.role === 'SALES_AGENT') {
+      where.user = {
+        salesAgentId: user.id,
+      };
     }
 
     if (filters.status) {
@@ -82,7 +95,7 @@ export class OrderService {
           payment: true,
           refund: true,
           user: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true, email: true, salesAgentId: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -203,6 +216,22 @@ export class OrderService {
       );
     }
 
+    // Trigger gateway refund if original payment was processed through NMI
+    let refundNotes = `Order cancelled. Refund of $${Number(order.totalAmount).toFixed(2)} processed. Reason: ${reason}`;
+    const txnId = order.payment?.transactionId;
+    if (txnId && !txnId.startsWith('TXN-') && !txnId.startsWith('ACCT-')) {
+      try {
+        const nmiRefund = await NmiService.refund({
+          transactionId: txnId,
+          amount: order.totalAmount,
+        });
+        refundNotes = `Order cancelled. NMI Refund confirmed (Ref: ${nmiRefund.refundTransactionId || txnId}). Reason: ${reason}`;
+      } catch (refundErr) {
+        console.warn('⚠️ [NMI Gateway Refund Warning]:', refundErr.message);
+        refundNotes += ` (Gateway refund notice: ${refundErr.message})`;
+      }
+    }
+
     // Transactionally cancel order, refund payment, and restore inventory
     const result = await prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
@@ -235,7 +264,7 @@ export class OrderService {
         data: {
           orderId,
           status: 'CANCELLED',
-          notes: `Order cancelled. Refund of $${Number(order.totalAmount).toFixed(2)} processed. Reason: ${reason}`,
+          notes: refundNotes,
           changedById: user.id,
         },
       });

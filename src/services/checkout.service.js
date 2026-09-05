@@ -1,12 +1,14 @@
 import { prisma } from '../config/db.js';
 import { AppError } from '../utils/appError.js';
 import { emitOrderStatusUpdate } from '../sockets/order.socket.js';
+import { NmiService } from './nmi.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export class CheckoutService {
   /**
    * Concurrency-safe, transactional checkout with stock locking,
-   * product & coupon expiry checks, and idempotency guarantees.
+   * product & coupon expiry checks, NMI payment processing,
+   * ON_ACCOUNT bypass option, and idempotency guarantees.
    */
   static async processCheckout(user, payload) {
     const {
@@ -14,6 +16,9 @@ export class CheckoutService {
       couponCode,
       shippingAddress,
       paymentMethod = 'CARD',
+      paymentToken,
+      cardDetails,
+      billingAddress,
       idempotencyKey = uuidv4(),
       simulatePaymentFailure = false,
     } = payload;
@@ -256,14 +261,39 @@ export class CheckoutService {
           });
         }
 
-        // Step F: Record Payment
+        // Step F: Gateway Processing & Payment Record
+        let gatewayTransactionId = `TXN-${uuidv4().substring(0, 12).toUpperCase()}`;
+        let paymentStatus = 'SUCCESS';
+        let paymentNotes = 'Order placed and payment successfully confirmed.';
+
+        if (paymentMethod === 'ON_ACCOUNT') {
+          gatewayTransactionId = `ACCT-${uuidv4().substring(0, 8).toUpperCase()}`;
+          paymentNotes = 'Order approved on Account (Demo Bypass mode active).';
+        } else if ((paymentMethod === 'CARD' || paymentMethod === 'NMI') && (paymentToken || cardDetails)) {
+          // Process live or sandbox payment via NMI Payment Gateway
+          const nmiResult = await NmiService.charge({
+            amount: totalAmount,
+            paymentToken,
+            cardDetails,
+            orderNumber,
+            customer: {
+              name: user.name,
+              email: user.email,
+            },
+            billing: billingAddress || {},
+          });
+
+          gatewayTransactionId = nmiResult.transactionId;
+          paymentNotes = `NMI Gateway payment confirmed (Auth Code: ${nmiResult.authCode || 'N/A'}, Ref: ${nmiResult.transactionId})`;
+        }
+
         const payment = await tx.payment.create({
           data: {
             orderId: order.id,
-            transactionId: `TXN-${uuidv4().substring(0, 12).toUpperCase()}`,
+            transactionId: gatewayTransactionId,
             paymentMethod,
             amount: totalAmount,
-            status: 'SUCCESS',
+            status: paymentStatus,
             idempotencyKey: `PAY-${idempotencyKey}`,
             paymentDate: new Date(),
           },

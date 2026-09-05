@@ -8,4 +8,7 @@ export const ENV = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   NODE_ENV: process.env.NODE_ENV || 'development',
+  NMI_SECURITY_KEY: process.env.NMI_SECURITY_KEY || '73CagW4s72aK4AS5WjsDh23bb6s78eus',
+  NMI_GATEWAY_URL: process.env.NMI_GATEWAY_URL || 'https://sandbox.nmi.com/api/transact.php',
+  NMI_CURRENCY: process.env.NMI_CURRENCY || 'USD',
 };
