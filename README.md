@@ -1,111 +1,121 @@
-# Center-Shopping-Backend
+# Center Shopping - Production E-Commerce Backend
 
-A production-grade, concurrency-safe E-Commerce backend built with **Express.js**, **MySQL (XAMPP / InnoDB)**, **Prisma ORM**, and **Socket.io**.
+A production-grade, concurrency-safe E-Commerce backend built with **Express.js**, **MySQL / TiDB Cloud**, **Prisma ORM**, **Socket.io**, and **NMI Payment Gateway**.
 
 ---
 
-## 🚀 Key Requirements & Critical Scenarios Handled
+## 🌐 Live Infrastructure
 
-1. **Authentication & RBAC (Role-Based Access Control)**:
-   - Roles: `CUSTOMER`, `ADMIN`, `SALES_AGENT`.
-   - JWT authentication with secure password hashing via `bcryptjs`.
-   - Role-guard middleware restricting administrative routes.
-   - **IDOR Protection**: Customers can only view and modify their own orders.
+- **Live API Endpoint**: `http://72.61.246.61:5000/api/v1`
+- **Health Check**: `http://72.61.246.61:5000/api/v1/health`
+- **Database**: TiDB Cloud (AWS AP-Southeast-1) Distributed MySQL
+- **Real-Time WebSocket**: `ws://72.61.246.61:5000`
+- **Frontend Live URL**: `https://center-shopping.vercel.app`
 
-2. **Product & Inventory Management**:
-   - Multi-variant products (pricing, SKUs, sizes/colors).
-   - Real-time stock tracking with low-stock alert thresholds.
-   - Perishable/time-sensitive goods with `expiryDate` validation.
+---
 
-3. **Concurrency & Race Condition Control (Simultaneous Purchase of Last Item)**:
-   - Uses atomic conditional MySQL queries inside serializable transactions:
+## 🚀 Key Features & Critical Scenarios Handled
+
+1. **Role-Based Access Control (RBAC) & IDOR Protection**:
+   - Distinct roles: `CUSTOMER`, `SALES_AGENT`, and `ADMIN`.
+   - JWT authentication with secure `bcryptjs` hashing.
+   - Administrative and sales agent route protection with granular permission gates.
+   - **IDOR Safeguards**: Customers can only view and modify their own orders and cart items.
+
+2. **Catalog & Inventory Architecture**:
+   - 1,050+ physical products across 6 major retail categories with 3,250+ variants.
+   - Real-time stock levels with low-stock warnings and product expiry (`expiryDate`) validation.
+
+3. **Concurrency Control & Atomic Stock Deductions**:
+   - Uses atomic conditional MySQL queries inside serializable Prisma transactions:
      ```sql
      UPDATE ProductVariant 
      SET stockQuantity = stockQuantity - ? 
      WHERE id = ? AND stockQuantity >= ?;
      ```
-   - Eliminates overselling: if two customers checkout the last item at the exact same millisecond, exactly one succeeds and the other receives `409 Conflict (OUT_OF_STOCK_CONFLICT)`.
+   - Eliminates overselling: When multiple customers simultaneously purchase the last stock unit, exactly one succeeds and others receive `409 Conflict (OUT_OF_STOCK_CONFLICT)`.
 
-4. **Discount & Coupon System**:
-   - Validates coupon expiry dates, start dates, minimum order values, and customer role eligibility.
-   - Enforces total redemption limits and per-user redemption limits.
-   - Re-validated atomically inside the checkout transaction to handle expiry during checkout.
+4. **NMI Payment Gateway Integration**:
+   - Secure Direct Post & API transaction handling (`sale` charges, card tokenization).
+   - Real-time validation and idempotency keys to prevent duplicate transactions.
 
-5. **Payment & Duplicate Order Prevention (Idempotency)**:
-   - Supports `Idempotency-Key` headers: duplicate checkout requests return the cached original order without double billing or double stock decrements.
-   - Handles simulated payment gateway failures cleanly without leaving orphaned records.
+5. **Discount & Coupon Engine**:
+   - Percentage & Flat discounts with expiry limits, minimum order requirements, and max discount caps.
+   - Enforces per-user and total redemption limits with atomic checkout validation.
 
-6. **Order Management & Real-Time Tracking**:
-   - Order progression: `CONFIRMED` → `PROCESSING` → `SHIPPED` → `DELIVERED`.
-   - Integrated **Socket.io** WebSocket server: pushes live order updates instantly to customer tracking screens without manual page reloads.
+6. **Real-Time Order Lifecycle Tracking**:
+   - Order progression: `CONFIRMED` ➔ `PROCESSING` ➔ `SHIPPED` ➔ `DELIVERED`.
+   - Socket.io broadcasts live order status events instantly to customer tracking screens without polling.
 
-7. **Cancellation & Refund Rules**:
-   - Customers can cancel orders while in `CONFIRMED` or `PROCESSING` status (triggers automatic refund and inventory restocking).
-   - Cancellation after shipment (`SHIPPED` or `DELIVERED`) is strictly rejected with `HTTP 400 Bad Request`.
-
-8. **Admin Dashboard Analytics**:
-   - Aggregated metrics for total revenue, active orders, cancelled orders, low-stock alerts, and expiring products.
+7. **Google OAuth & User Synchronization**:
+   - Seamless token validation with Firebase Auth and automated customer onboarding.
 
 ---
 
-## 🛠️ Setup Instructions
+## 👥 Seeded User Accounts
+
+| Role | Email | Password | Access Level |
+|---|---|---|---|
+| 👑 **Administrator** | `admin@gmail.com` | `Password@123` | Full control, catalog, stock & analytics |
+| 💼 **Sales Agent** | `agent@gmail.com` | `Password@123` | Assigned clients, commissions & orders |
+| 🛒 **Customer** | `customer@gmail.com` | `Password@123` | Storefront checkout, cart & order tracking |
+
+---
+
+## 🛠️ Local Setup & Configuration
 
 ### 1. Prerequisites
 - Node.js (v18+)
-- MySQL running (e.g. XAMPP on port 3306)
+- MySQL or TiDB Cloud instance
 
-### 2. Installation & Configuration
+### 2. Installation
 ```bash
 cd backend
 npm install
 ```
-Configure `.env`:
+
+### 3. Environment Variables (`.env`)
 ```env
-DATABASE_URL="mysql://root:@localhost:3306/ecom_db"
+# Database Connection (Local or TiDB Cloud)
+DATABASE_URL="mysql://2bUTfb7L2i6ttV3.root:09S9UGYpf64NjlRV@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/dropyhub?sslaccept=strict"
+
+# Server Port
 PORT=5000
+
+# JWT Auth
 JWT_SECRET="ecom_enterprise_super_secret_jwt_key_2026"
 JWT_EXPIRES_IN="7d"
+
+# Frontend Client URL
 FRONTEND_URL="http://localhost:3000"
 NODE_ENV="development"
+
+# NMI Payment Gateway
+NMI_SECURITY_KEY="73CagW4s72aK4AS5WjsDh23bb6s78eus"
+NMI_GATEWAY_URL="https://sandbox.nmi.com/api/transact.php"
+NMI_CURRENCY="USD"
 ```
 
-### 3. Database Migration & Seeding
+### 4. Database Setup & Seeding
 ```bash
-# Push schema to MySQL and generate client
+# Push schema to database
 npm run prisma:push
 
-# Seed initial users, products, variants, and edge-case coupons
+# Seed complete 1,000+ products dataset
 npm run prisma:seed
 ```
 
-### 4. Run Server
+### 5. Start Server
 ```bash
-# Development with auto-reload
+# Development (with auto-reload)
 npm run dev
 
 # Production
 npm start
 ```
 
-### 5. Run Automated Critical Scenario Tests
+### 6. Automated Concurrency & Resilience Tests
 ```bash
 npm run test:concurrency
 ```
-This runs automated tests validating:
-- Concurrent purchase of the last stock item
-- Product expiry during checkout
-- Coupon expiry during checkout
-- Duplicate payment/order prevention (Idempotency)
-- Cancellation after shipment rejection
-- Security & IDOR protection
-
----
-
-## 👥 Seeded Test Accounts
-
-| Role | Email | Password |
-|---|---|---|
-| **Admin** | `admin@specbee.com` | `Password@123` |
-| **Sales Agent** | `agent@specbee.com` | `Password@123` |
-| **Customer 1** | `customer@specbee.com` | `Password@123` |
-| **Customer 2** | `buyer2@specbee.com` | `Password@123` |
+Validates race conditions, idempotency, coupon expiration, and shipment cancellation guards.
