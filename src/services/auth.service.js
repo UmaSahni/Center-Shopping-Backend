@@ -121,6 +121,8 @@ export class AuthService {
       },
     });
 
+    const isNewUser = !user;
+
     if (mode === 'login') {
       if (!user) {
         throw new AppError('No account found with this Google email. Please Sign Up first to create your account.', 404, 'ACCOUNT_NOT_FOUND');
