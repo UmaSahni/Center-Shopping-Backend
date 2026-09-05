@@ -107,7 +107,7 @@ export class AuthService {
     };
   }
 
-  static async googleAuth({ email, name, avatarUrl }) {
+  static async googleAuth({ email, name, avatarUrl, mode = 'login' }) {
     if (!email) {
       throw new AppError('Email is required from Google account', 400, 'MISSING_EMAIL');
     }
@@ -121,12 +121,19 @@ export class AuthService {
       },
     });
 
-    const isNewUser = !user;
-    if (user) {
+    if (mode === 'login') {
+      if (!user) {
+        throw new AppError('No account found with this Google email. Please Sign Up first to create your account.', 404, 'ACCOUNT_NOT_FOUND');
+      }
       if (!user.isActive) {
         throw new AppError('Your account has been deactivated. Please contact support.', 403, 'ACCOUNT_DEACTIVATED');
       }
     } else {
+      // mode === 'register'
+      if (user) {
+        throw new AppError('An account with this Google email already exists. Please Sign In.', 409, 'ACCOUNT_ALREADY_EXISTS');
+      }
+
       // New Google customer registration: Auto-assign active Sales Agent with fewest customers
       const activeAgents = await prisma.user.findMany({
         where: { role: 'SALES_AGENT', isActive: true },
