@@ -75,15 +75,17 @@ npm install
 ```
 
 ### 3. Environment Variables (`.env`)
+Create a `.env` file in the `backend/` directory (see `.env.example`):
 ```env
-# Database Connection (Local or TiDB Cloud)
-DATABASE_URL="mysql://2bUTfb7L2i6ttV3.root:09S9UGYpf64NjlRV@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/dropyhub?sslaccept=strict"
+# Database Connection (MySQL / TiDB Cloud)
+DATABASE_URL="mysql://<USERNAME>:<PASSWORD>@<HOST>:<PORT>/<DATABASE>?sslaccept=strict"
+# Local fallback example: "mysql://root:@localhost:3306/ecom_db"
 
 # Server Port
 PORT=5000
 
 # JWT Auth
-JWT_SECRET="ecom_enterprise_super_secret_jwt_key_2026"
+JWT_SECRET="your_jwt_secret_key"
 JWT_EXPIRES_IN="7d"
 
 # Frontend Client URL
@@ -91,7 +93,7 @@ FRONTEND_URL="http://localhost:3000"
 NODE_ENV="development"
 
 # NMI Payment Gateway
-NMI_SECURITY_KEY="73CagW4s72aK4AS5WjsDh23bb6s78eus"
+NMI_SECURITY_KEY="your_nmi_security_key"
 NMI_GATEWAY_URL="https://sandbox.nmi.com/api/transact.php"
 NMI_CURRENCY="USD"
 ```
