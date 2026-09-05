@@ -110,12 +110,21 @@ export function emitOrderStatusUpdate(orderId, updateData) {
 
   // 1. Order tracking room
   ioInstance.to(`order:${orderId}`).emit('order:status_updated', updateData);
+  ioInstance.to(`order:${orderId}`).emit('ORDER_UPDATED', updateData);
 
   // 2. Customer personal room
   ioInstance.to(`user:${updateData.userId}`).emit('order:status_updated', updateData);
+  ioInstance.to(`user:${updateData.userId}`).emit('ORDER_UPDATED', updateData);
 
-  // 3. Staff room
+  // 3. Staff room (Admin & Sales Agents)
   ioInstance.to('staff:orders').emit('order:status_updated', updateData);
+  ioInstance.to('staff:orders').emit('ORDER_UPDATED', updateData);
+  ioInstance.to('staff:orders').emit('NEW_ORDER', updateData);
+  ioInstance.to('staff:orders').emit('order:created', updateData);
+
+  // 4. Global broadcast fallback
+  ioInstance.emit('ORDER_UPDATED', updateData);
+  ioInstance.emit('order:status_updated', updateData);
 
   console.log(`📢 [Socket.io] Broadcasted order update: Order #${updateData.orderNumber} -> ${updateData.status}`);
 }
