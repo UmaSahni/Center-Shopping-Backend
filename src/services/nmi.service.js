@@ -53,7 +53,8 @@ export class NmiService {
       params.append('first_name', nameParts[0] || '');
       params.append('last_name', nameParts.slice(1).join(' ') || '');
     }
-    if (customer.email) {
+    // Only send customer email if not on sandbox domain (NMI Sandbox accounts throw error if sending receipts to external emails)
+    if (customer.email && !gatewayUrl.includes('sandbox.nmi.com')) {
       params.append('email', customer.email);
     }
     if (billing.address) params.append('address1', billing.address);
