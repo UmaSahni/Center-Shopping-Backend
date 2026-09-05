@@ -10,7 +10,9 @@ const server = http.createServer(app);
 // Initialize Socket.io Server for Real-Time Order Tracking
 const io = new SocketIOServer(server, {
   cors: {
-    origin: [ENV.FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
