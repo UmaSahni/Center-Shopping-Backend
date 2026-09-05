@@ -637,9 +637,9 @@ async function main() {
   const passwordHash = await bcrypt.hash('Password@123', 10);
   await prisma.user.createMany({
     data: [
-      { email: 'admin@specbee.com', password: passwordHash, name: 'Center Shopping Admin', role: 'ADMIN' },
-      { email: 'agent@specbee.com', password: passwordHash, name: 'Vikram Mehta (Sales Partner)', role: 'SALES_AGENT' },
-      { email: 'customer@specbee.com', password: passwordHash, name: 'Rahul Sharma', role: 'CUSTOMER' },
+      { email: 'admin@gmail.com', password: passwordHash, name: 'Center Shopping Admin', role: 'ADMIN' },
+      { email: 'agent@gmail.com', password: passwordHash, name: 'Vikram Mehta (Sales Partner)', role: 'SALES_AGENT' },
+      { email: 'customer@gmail.com', password: passwordHash, name: 'Rahul Sharma', role: 'CUSTOMER' },
       { email: 'priya.sharma@example.com', password: passwordHash, name: 'Priya Sharma', role: 'CUSTOMER' },
       { email: 'amit.verma@example.com', password: passwordHash, name: 'Amit Verma', role: 'CUSTOMER' },
     ]
@@ -795,7 +795,7 @@ async function main() {
   }
 
   // 7. Seed sample historical orders for Rahul Sharma so order history & admin dashboard are populated
-  const customerUser = await prisma.user.findUnique({ where: { email: 'customer@specbee.com' } });
+  const customerUser = await prisma.user.findUnique({ where: { email: 'customer@gmail.com' } });
   if (customerUser && variantsToInsert.length > 5) {
     console.log('🛍️ Generating initial orders and purchase history...');
     const sampleStatuses = ['DELIVERED', 'SHIPPED', 'PROCESSING', 'CONFIRMED', 'CANCELLED'];

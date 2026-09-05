@@ -107,9 +107,9 @@ async function main() {
   console.log('🧹 Cleaned existing tables.');
 
   const passwordHash = await bcrypt.hash('Password@123', 10);
-  await prisma.user.create({ data: { email: 'admin@specbee.com', password: passwordHash, name: 'System Administrator', role: 'ADMIN' } });
-  await prisma.user.create({ data: { email: 'agent@specbee.com', password: passwordHash, name: 'Sarah Custody Agent', role: 'SALES_AGENT' } });
-  await prisma.user.create({ data: { email: 'customer@specbee.com', password: passwordHash, name: 'John Vault Collector', role: 'CUSTOMER' } });
+  await prisma.user.create({ data: { email: 'admin@gmail.com', password: passwordHash, name: 'System Administrator', role: 'ADMIN' } });
+  await prisma.user.create({ data: { email: 'agent@gmail.com', password: passwordHash, name: 'Sarah Custody Agent', role: 'SALES_AGENT' } });
+  await prisma.user.create({ data: { email: 'customer@gmail.com', password: passwordHash, name: 'John Vault Collector', role: 'CUSTOMER' } });
   console.log('✅ Created Admin, Agent, and Customer users.');
 
   for (let i = 0; i < vaultProducts.length; i++) {
