@@ -121,6 +121,7 @@ export class AuthService {
       },
     });
 
+    const isNewUser = !user;
     if (user) {
       if (!user.isActive) {
         throw new AppError('Your account has been deactivated. Please contact support.', 403, 'ACCOUNT_DEACTIVATED');
@@ -170,6 +171,7 @@ export class AuthService {
         salesAgent: user.salesAgent,
       },
       token,
+      isNewUser,
     };
   }
 
